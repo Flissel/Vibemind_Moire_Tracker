@@ -7,6 +7,7 @@ with support for multiple environment types (development, production).
 
 import os
 import sys
+import shutil
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -135,8 +136,8 @@ def load_config(force_reload: bool = False) -> ProductionConfig:
         moire_reconnect_attempts=int(os.getenv("MOIRE_RECONNECT_ATTEMPTS", "10")),
         moire_reconnect_interval=int(os.getenv("MOIRE_RECONNECT_INTERVAL", "2000")),
 
-        # Tesseract
-        tesseract_path=os.getenv("TESSERACT_PATH", r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
+        # Tesseract (auto-detect or use TESSERACT_PATH env var)
+        tesseract_path=os.getenv("TESSERACT_PATH") or shutil.which("tesseract") or "",
 
         # Logging
         log_level=os.getenv("LOG_LEVEL", "INFO"),
