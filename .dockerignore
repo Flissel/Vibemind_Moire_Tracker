@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Generated data
+detection_results/
+validation_screenshots/
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Test files
+tests/
+test_*.py
+*.test.ts
+*.spec.ts
+pytest_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+nul
+
+# Large binary files
+*.traineddata
+
+# Development files
+*.map
+tsconfig.json
+.eslintrc.json
+jest.config.js

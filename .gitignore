@@ -1,0 +1,99 @@
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.eggs/
+*.whl
+
+# Build outputs
+dist/
+build/
+*.js.map
+*.tsbuildinfo
+
+# Generated data
+detection_results/
+validation_screenshots/
+crops/
+gradients/
+lines/
+regions/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+nul
+desktop.ini
+
+# Python
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+ENV/
+env/
+
+# Test artifacts (in root only, not in tests/)
+/python/*.csv
+pytest_cache/
+
+# Large binary files
+*.traineddata
+
+# Training data (see MoireTracker-TrainingData repo)
+training_data/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Runtime
+*.pid
+*.seed
+*.pid.lock
+
+# Package manager locks (optional - uncomment if you don't want to track)
+# package-lock.json
+# yarn.lock

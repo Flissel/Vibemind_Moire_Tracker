@@ -1,0 +1,182 @@
+{
+  "version": "1.0.0",
+  "created": "2024-12-12T07:15:00Z",
+  "lastUpdated": "2024-12-12T07:15:00Z",
+  "settings": {
+    "autoApproveThreshold": 3,
+    "enableHierarchy": true,
+    "maxPendingCategories": 50
+  },
+  "categories": {
+    "button": {
+      "description": "Clickable UI element that triggers an action",
+      "examples": ["Save Button", "Submit", "OK", "Cancel", "Close"],
+      "parent": null,
+      "usageCount": 49,
+      "createdByLlm": false
+    },
+    "icon": {
+      "description": "Small graphical symbol representing an application, file, or action",
+      "examples": ["Application Icon", "File Icon", "Folder Icon"],
+      "parent": null,
+      "usageCount": 155,
+      "createdByLlm": false
+    },
+    "browser_icon": {
+      "description": "Desktop or taskbar icon for web browser applications",
+      "examples": ["Chrome Browser", "Firefox Browser", "Microsoft Edge", "Opera", "Brave"],
+      "parent": "icon",
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "editor_icon": {
+      "description": "Desktop or taskbar icon for code editors and IDEs",
+      "examples": ["VS Code", "Sublime Text", "Notepad++", "IntelliJ IDEA", "PyCharm"],
+      "parent": "icon",
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "system_icon": {
+      "description": "Windows system icons and utilities",
+      "examples": ["Recycle Bin", "This PC", "Control Panel", "File Explorer", "Task Manager"],
+      "parent": "icon",
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "app_icon": {
+      "description": "Desktop or taskbar icon for various applications",
+      "examples": ["Discord", "Spotify", "Steam", "Slack", "Teams"],
+      "parent": "icon",
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "game_icon": {
+      "description": "Desktop or taskbar icon for games and game launchers",
+      "examples": ["Steam", "Epic Games Launcher", "Riot Client", "Battle.net"],
+      "parent": "icon",
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "input": {
+      "description": "Text input field, search box, or form control for user input",
+      "examples": ["Search Input", "Text Field", "Email Input", "Password Field"],
+      "parent": null,
+      "usageCount": 8,
+      "createdByLlm": false
+    },
+    "text": {
+      "description": "Static text, label, or heading that displays information",
+      "examples": ["Label", "Title", "Description", "Status Text"],
+      "parent": null,
+      "usageCount": 131,
+      "createdByLlm": false
+    },
+    "link": {
+      "description": "Clickable text or element that navigates to another location",
+      "examples": ["Hyperlink", "Navigation Link", "URL Link"],
+      "parent": null,
+      "usageCount": 10,
+      "createdByLlm": false
+    },
+    "checkbox": {
+      "description": "Toggle control that can be checked or unchecked",
+      "examples": ["Checkbox", "Toggle Option", "Selection Box"],
+      "parent": null,
+      "usageCount": 12,
+      "createdByLlm": false
+    },
+    "radio": {
+      "description": "Radio button for single selection from multiple options",
+      "examples": ["Radio Button", "Option Selector"],
+      "parent": null,
+      "usageCount": 1,
+      "createdByLlm": false
+    },
+    "dropdown": {
+      "description": "Expandable menu for selecting from a list of options",
+      "examples": ["Dropdown Menu", "Select Box", "Combo Box"],
+      "parent": null,
+      "usageCount": 2,
+      "createdByLlm": false
+    },
+    "container": {
+      "description": "Layout container that groups other UI elements",
+      "examples": ["Panel", "Card", "Dialog Box", "Window Frame"],
+      "parent": null,
+      "usageCount": 4,
+      "createdByLlm": false
+    },
+    "header": {
+      "description": "Header area typically at the top of a window or section",
+      "examples": ["Window Title Bar", "Section Header", "Page Header"],
+      "parent": null,
+      "usageCount": 10,
+      "createdByLlm": false
+    },
+    "menu": {
+      "description": "Navigation menu or context menu with selectable options",
+      "examples": ["Main Menu", "Context Menu", "Navigation Bar"],
+      "parent": null,
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "toolbar": {
+      "description": "Bar containing action buttons or tools",
+      "examples": ["Tool Bar", "Action Bar", "Quick Access Toolbar"],
+      "parent": null,
+      "usageCount": 2,
+      "createdByLlm": false
+    },
+    "image": {
+      "description": "Image, photo, or visual content element",
+      "examples": ["Photo", "Thumbnail", "Banner Image"],
+      "parent": null,
+      "usageCount": 2,
+      "createdByLlm": false
+    },
+    "footer": {
+      "description": "Footer area typically at the bottom of a window or section",
+      "examples": ["Window Footer", "Page Footer", "Status Bar"],
+      "parent": null,
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "taskbar_item": {
+      "description": "Item in the Windows taskbar",
+      "examples": ["Pinned App", "Running App", "System Tray Icon"],
+      "parent": null,
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "notification": {
+      "description": "Notification popup, toast, or alert message",
+      "examples": ["Toast Notification", "Alert", "System Notification"],
+      "parent": null,
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "scrollbar": {
+      "description": "Scroll control for navigating content",
+      "examples": ["Vertical Scrollbar", "Horizontal Scrollbar"],
+      "parent": null,
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "tab": {
+      "description": "Tab control for switching between views or panels",
+      "examples": ["Browser Tab", "Settings Tab", "Tab Button"],
+      "parent": null,
+      "usageCount": 0,
+      "createdByLlm": false
+    },
+    "unknown": {
+      "description": "Unidentified UI element that doesnt match known categories",
+      "examples": [],
+      "parent": null,
+      "usageCount": 15,
+      "createdByLlm": false
+    }
+  },
+  "pendingCategories": [],
+  "categoryHistory": []
+}

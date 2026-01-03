@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "handoff": {
+      "command": "python",
+      "args": ["python/mcp_server_handoff.py"]
+    },
+    "desktop-commander": {
+      "command": "npx.cmd",
+      "args": ["@wonderwhy-er/desktop-commander@latest"]
+    },
+    "docling": {
+      "command": "uvx",
+      "args": ["--from=docling-mcp", "docling-mcp-server"]
+    }
+  }
+}

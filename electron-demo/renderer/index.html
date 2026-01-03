@@ -1,0 +1,2318 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moire Grid Visualization</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            
+            /* Category Colors */
+            --cat-button: #4CAF50;
+            --cat-icon: #2196F3;
+            --cat-input: #FF9800;
+            --cat-text: #9C27B0;
+            --cat-image: #E91E63;
+            --cat-checkbox: #00BCD4;
+            --cat-dropdown: #795548;
+            --cat-link: #03A9F4;
+            --cat-container: #607D8B;
+            --cat-menu: #FFC107;
+            --cat-toolbar: #8BC34A;
+            --cat-unknown: #666666;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+        header h1 { font-size: 16px; color: var(--accent); }
+        .connection-indicator {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--danger);
+            transition: background 0.3s;
+        }
+        .connection-indicator.connected { background: var(--success); }
+        .header-controls { display: flex; gap: 8px; margin-left: auto; }
+
+        /* Main Layout */
+        .main-layout {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            overflow: hidden;
+        }
+        @media (max-width: 1000px) {
+            .main-layout { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+        }
+
+        /* Canvas Area */
+        .canvas-area {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+        .canvas-controls {
+            display: flex;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .canvas-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        #main-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            cursor: grab;
+        }
+        #main-canvas.dragging { cursor: grabbing; }
+        
+        /* Grid Overlay */
+        #grid-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            pointer-events: none;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .panel {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .panel-header {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .panel-header:hover { background: rgba(255,255,255,0.03); }
+        .panel-content { padding: 10px; }
+        .panel.collapsed .panel-content { display: none; }
+
+        /* Form Elements */
+        .btn {
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: var(--border); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn.primary { background: var(--success); border-color: var(--success); color: #fff; }
+        .btn.primary:hover { background: #2ea043; }
+        .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+        .btn.active { background: var(--accent); border-color: var(--accent); }
+        .btn-group { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+
+        input[type="text"], input[type="number"], select {
+            padding: 5px 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 11px;
+        }
+        input[type="range"] { accent-color: var(--accent); }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            padding: 4px 0;
+        }
+
+        /* Metrics */
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 11px;
+        }
+        .metric-row:last-child { border-bottom: none; }
+        .metric-label { color: var(--text-muted); }
+        .metric-value { font-family: monospace; color: var(--accent); }
+
+        /* Slider */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+        }
+        .slider-row input[type="range"] { flex: 1; }
+
+        /* Category Filter Tags */
+        .category-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 8px 0;
+        }
+        .cat-tag {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.2s;
+        }
+        .cat-tag.active { opacity: 1; }
+        .cat-tag .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+        }
+        .cat-tag.button { background: var(--cat-button); }
+        .cat-tag.button .dot { background: #fff; }
+        .cat-tag.icon { background: var(--cat-icon); }
+        .cat-tag.icon .dot { background: #fff; }
+        .cat-tag.input { background: var(--cat-input); }
+        .cat-tag.input .dot { background: #fff; }
+        .cat-tag.text { background: var(--cat-text); }
+        .cat-tag.text .dot { background: #fff; }
+        .cat-tag.image { background: var(--cat-image); }
+        .cat-tag.checkbox { background: var(--cat-checkbox); }
+        .cat-tag.dropdown { background: var(--cat-dropdown); }
+        .cat-tag.link { background: var(--cat-link); }
+        .cat-tag.container { background: var(--cat-container); }
+        .cat-tag.menu { background: var(--cat-menu); }
+        .cat-tag.toolbar { background: var(--cat-toolbar); }
+        .cat-tag.unknown { background: var(--cat-unknown); }
+
+        /* Element Details Card */
+        .element-card {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent);
+        }
+        .element-card.selected {
+            border-left-color: var(--success);
+            background: rgba(63, 185, 80, 0.1);
+        }
+        .element-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .element-id {
+            font-family: monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+        .element-category {
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 600;
+        }
+        .element-text {
+            font-size: 11px;
+            padding: 4px 6px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            margin-top: 4px;
+            word-break: break-word;
+        }
+        .element-coords {
+            font-size: 9px;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        /* Region Card */
+        .region-card {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 6px;
+            border-left: 3px solid var(--warning);
+        }
+        .region-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+        }
+        .region-stats {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Mini Chart */
+        .mini-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 1px;
+            height: 40px;
+            background: var(--bg-primary);
+            border-radius: 4px;
+            padding: 4px;
+            margin-top: 8px;
+        }
+        .chart-bar {
+            flex: 1;
+            min-height: 2px;
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* Category Distribution Chart */
+        .cat-distribution {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        .cat-bar {
+            transition: width 0.3s;
+        }
+
+        /* Log */
+        .log-container {
+            background: var(--bg-primary);
+            border-radius: 4px;
+            padding: 6px;
+            max-height: 100px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 9px;
+        }
+        .log-entry { padding: 2px 0; }
+        .log-entry.info { color: var(--accent); }
+        .log-entry.success { color: var(--success); }
+        .log-entry.warning { color: var(--warning); }
+        .log-entry.error { color: var(--danger); }
+
+        /* Click Visualization */
+        .click-indicator {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ff4444;
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            animation: click-ring 0.5s ease-out forwards;
+            z-index: 9999;
+        }
+        .click-indicator.double-click { border-color: #ff8800; }
+        .click-indicator.right-click { border-color: #aa44ff; }
+        .click-indicator.drag { border-color: #44aaff; }
+        .click-indicator.type {
+            border-color: #44ff88;
+            width: auto;
+            min-width: 30px;
+            height: auto;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            background: rgba(68, 255, 136, 0.2);
+            color: #44ff88;
+            white-space: nowrap;
+        }
+        @keyframes click-ring {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            font-size: 10px;
+        }
+        .stat-item { display: flex; gap: 4px; }
+        .stat-label { color: var(--text-muted); }
+        .stat-value { color: var(--accent); font-weight: 600; }
+
+        /* Grid View Toggle */
+        .view-mode-toggle {
+            display: flex;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .view-mode-btn {
+            padding: 4px 10px;
+            background: var(--bg-tertiary);
+            border: none;
+            color: var(--text);
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .view-mode-btn.active {
+            background: var(--accent);
+            color: #000;
+        }
+        .view-mode-btn:hover:not(.active) {
+            background: var(--border);
+        }
+
+        /* Layer toggles - erweitert */
+        .layer-toggles {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .layer-toggle.active { 
+            background: var(--bg-secondary); 
+            border-color: var(--accent);
+        }
+        .layer-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            max-width: 250px;
+            z-index: 10000;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .tooltip-header {
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tooltip-text {
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+
+        /* RL Panel Tab - NEU */
+        .tab-btn {
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-tertiary);
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { background: var(--border); }
+        .tab-btn.active { background: var(--accent); color: #000; }
+
+        /* RL Panel - NEU */
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        .section-header {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-header h3 { font-size: 14px; color: var(--accent); }
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stat-card {
+            margin-bottom: 12px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .stat-card > div:first-child { width: 160px; font-family: monospace; color: #44ff88; }
+        .stat-card > div:last-child { color: #e67e22; }
+
+        .rl-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .episodes-list {
+            background: #1a1a2e;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .episodes-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .episodes-list-header .stat { background: #2a2a3e; border: 1px solid #444; border-radius: 4px; padding: 4px 8px; color: #fff; textDecoration: none; }
+
+        .chart-container {
+            display: flex;
+            align-items: flex-end;
+            padding: 4px;
+            border-radius: 8px;
+            background: #1a1a2e;
+            width: 100%;
+            max-height: 250px;
+        }
+        .chart-bar {
+            flex: 1;
+            border-radius: 2px;
+            padding: 0;
+            margin: 0;
+            box-shadow: inset 0px 0px 8px rgba(0,0,0,0.5);
+        }
+        .legend {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            margin-top: 0px;
+            height: 20px;
+            border-radius: 2px;
+            background: #1a1a2e;
+            font-size: 12px;
+        }
+        .legend div {
+            box-shadow: inset 0px 0px 8px rgba(0,0,0,0.5);
+        }
+
+        .hyperparams-form {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            box-shadow: 0px 0px 12px rgba(0,0,0,0.3);
+            transition: 1s ease all;
+            -webkit-appearance: none;
+            appearance: none;
+            &::-webkit-inner-spin-button,
+            &::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0px 0px 20px var(--accent);
+        }
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            background: #2a2a3e;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .form-row > div {
+            font-size: 12px;
+        }
+        .feedback-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .feedback-buttons .btn {
+            flex: 1;
+            padding: 16px;
+            font-size: 12px;
+            justify-content: center;
+            transition: 0.5s ease bolder;
+        }
+        .feedback-btn:hover {
+            background: #1a1a2e;
+            color: #fff;
+        }
+        .btn-primary {
+            background: var(--success);
+        }
+        .btn-danger {
+            background: var(--danger);
+        }
+        .element-filter {
+            background: #2a2a3e;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            transition: 0.5s ease all;
+        }
+        .toggle {
+            width: 20px;
+            height: 20px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.5s ease all;
+        }
+        .toggle:checked {
+            background: #1a1a2e;
+        }
+
+        .section-header #feedback-episode-select {
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            padding: 10px;
+            max-width: 200px;
+        }
+
+        .section-header #episodes-search {
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 12px;
+            padding: 10px;
+            max-width: 200px;
+        }
+
+        .section-header #episodes-filter {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .section-header #episodes-filter,
+        .qtable .mini-chart {
+            width: 300px;
+        }
+        .loading-indicator {
+            background: linear-gradient(90deg, rgba(100, 255, 136, 0.3), #fff 0%, rgba(100, 255, 136, 0.3) 100%);
+            animation-timing-function: linear;
+            animation-fill-mode: both;
+            background-size: 300% 100%;
+        }
+        .element-details {
+            display: flex;
+            flex-direction: column;
+            break-after: page;
+        }
+        table .element-id {
+            background-color: #1a1a39;
+            color: #fff;
+            font-weight: bold;
+        }
+        .action-indicator {
+            background-color: #1a1a39;
+            color: #fff;
+            font-weight: bold;
+            min-width: 430px;
+        }
+        .element-details thead {
+            animation: floating-action 60s linear infinite;
+            box-shadow: 0 3px 20px rgba(100, 255, 136, 0.2);
+        }
+        @keyframes floating-action {
+            0% { transform: translate(0, 0px); }
+            50% { transform: translate(0, 1px); }
+            100% { transform: translate(0, 0px); }
+        }
+
+        .qtable-container {
+            width: 100%;
+            background-color: #1a1a2e;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-y: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        thead {
+            background-color: #1a1a2e;
+            color: #fff;
+            font-weight: bold;
+        }
+        th, td {
+            border: 1px solid #30363d;
+            padding: 8px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        th:last-child,
+        td:last-child {
+            padding-left: 12px;
+        }
+        tbody tr:nth-child(odd) {
+            background-color: #1a1a2e;
+            color: #fff;
+            border-left: 6px solid #33ff8c;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #161a2a;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <h1>🔬 Moire Grid Visualization</h1>
+        <div class="connection-indicator" id="conn-indicator"></div>
+        <span id="conn-status" style="font-size: 11px;">Disconnected</span>
+        <div class="view-mode-toggle">
+            <button class="view-mode-btn active" data-mode="boxes">Boxes</button>
+            <button class="view-mode-btn" data-mode="grid">Grid</button>
+            <button class="view-mode-btn" data-mode="regions">Regions</button>
+        </div>
+        <div class="header-controls">
+            <input type="text" id="ws-url" value="ws://localhost:8765" style="width: 150px;">
+            <button class="btn primary" id="btn-connect">Connect</button>
+        </div>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="main-layout">
+        <!-- Canvas Area -->
+        <div class="canvas-area">
+            <div class="canvas-controls">
+                <button class="btn" id="btn-capture">📸 Capture</button>
+                <button class="btn" id="btn-start">▶ Start</button>
+                <button class="btn" id="btn-stop" disabled>⏹ Stop</button>
+                <span style="color: var(--text-muted); font-size: 11px;">|</span>
+                <button class="btn" id="btn-run-ocr">🔤 OCR</button>
+                <button class="btn" id="btn-run-cnn">🤖 CNN</button>
+                <span style="color: var(--text-muted); font-size: 11px;">|</span>
+                <div class="layer-toggles">
+                    <div class="layer-toggle active" data-layer="boxes">
+                        <span class="layer-dot" style="background: var(--accent);"></span> Boxes
+                    </div>
+                    <div class="layer-toggle active" data-layer="regions">
+                        <span class="layer-dot" style="background: var(--warning);"></span> Regions
+                    </div>
+                    <div class="layer-toggle active" data-layer="lines">
+                        <span class="layer-dot" style="background: var(--success);"></span> Lines
+                    </div>
+                    <div class="layer-toggle" data-layer="grid">
+                        <span class="layer-dot" style="background: var(--text-muted);"></span> Grid
+                    </div>
+                </div>
+                <span style="flex: 1;"></span>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="show-labels" checked>
+                    <label for="show-labels">Labels</label>
+                </div>
+                <div class="checkbox-row">
+                    <input type="checkbox" id="show-confidence">
+                    <label for="show-confidence">Confidence</label>
+                </div>
+            </div>
+            <div class="canvas-wrapper" id="canvas-wrapper">
+                <canvas id="main-canvas"></canvas>
+                <canvas id="grid-overlay"></canvas>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Category Filter Panel -->
+            <div class="panel" id="panel-categories">
+                <div class="panel-header">🏷️ Categories</div>
+                <div class="panel-content">
+                    <div class="category-filters" id="category-filters">
+                        <div class="cat-tag button active" data-cat="button"><span class="dot"></span>Button</div>
+                        <div class="cat-tag icon active" data-cat="icon"><span class="dot"></span>Icon</div>
+                        <div class="cat-tag input active" data-cat="input"><span class="dot"></span>Input</div>
+                        <div class="cat-tag text active" data-cat="text"><span class="dot"></span>Text</div>
+                        <div class="cat-tag image active" data-cat="image"><span class="dot"></span>Image</div>
+                        <div class="cat-tag checkbox active" data-cat="checkbox"><span class="dot"></span>Checkbox</div>
+                        <div class="cat-tag dropdown active" data-cat="dropdown"><span class="dot"></span>Dropdown</div>
+                        <div class="cat-tag link active" data-cat="link"><span class="dot"></span>Link</div>
+                        <div class="cat-tag container active" data-cat="container"><span class="dot"></span>Container</div>
+                        <div class="cat-tag menu active" data-cat="menu"><span class="dot"></span>Menu</div>
+                        <div class="cat-tag toolbar active" data-cat="toolbar"><span class="dot"></span>Toolbar</div>
+                        <div class="cat-tag unknown active" data-cat="unknown"><span class="dot"></span>Unknown</div>
+                    </div>
+                    <div class="cat-distribution" id="cat-distribution"></div>
+                    <div class="btn-group">
+                        <button class="btn" id="btn-cat-all">All</button>
+                        <button class="btn" id="btn-cat-none">None</button>
+                        <button class="btn" id="btn-cat-interactive">Interactive</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detection Stats Panel -->
+            <div class="panel" id="panel-detection">
+                <div class="panel-header">📦 Detection</div>
+                <div class="panel-content">
+                    <div class="metric-row">
+                        <span class="metric-label">Total Boxes</span>
+                        <span class="metric-value" id="det-boxes">0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Regions</span>
+                        <span class="metric-value" id="det-regions">0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Lines</span>
+                        <span class="metric-value" id="det-lines">0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">With Text</span>
+                        <span class="metric-value" id="det-text">0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Avg Confidence</span>
+                        <span class="metric-value" id="det-confidence">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regions Panel -->
+            <div class="panel" id="panel-regions">
+                <div class="panel-header">📐 Regions</div>
+                <div class="panel-content" id="regions-list" style="max-height: 150px; overflow-y: auto;">
+                    <div style="color: var(--text-muted); font-size: 10px;">No regions detected</div>
+                </div>
+            </div>
+
+            <!-- Selected Element Panel -->
+            <div class="panel" id="panel-selected">
+                <div class="panel-header">🎯 Selected Element</div>
+                <div class="panel-content" id="selected-element">
+                    <div style="color: var(--text-muted); font-size: 11px;">Click on a box to select</div>
+                </div>
+            </div>
+
+            <!-- Active Learning Panel -->
+            <div class="panel" id="panel-learning">
+                <div class="panel-header">📚 Active Learning</div>
+                <div class="panel-content">
+                    <div class="metric-row">
+                        <span class="metric-label">Training Samples</span>
+                        <span class="metric-value" id="learn-samples">0</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Uncertain Queue</span>
+                        <span class="metric-value" id="learn-queue">0</span>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn" id="btn-get-uncertain">Get Uncertain</button>
+                        <button class="btn" id="btn-export-data">Export</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log Panel -->
+            <div class="panel collapsed" id="panel-log">
+                <div class="panel-header">📋 Log</div>
+                <div class="panel-content">
+                    <div class="log-container" id="log-container">
+                        <div class="log-entry info">System ready</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RL Panel Tab - NEU -->
+            <button class="tab-btn" data-tab="rl">🎯 RL Panel</button>
+
+            <!-- RL Panel - NEU -->
+            <div id="rl-panel" class="tab-content" style="display: none;">
+              <div class="panel-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                
+                <!-- Left Column: Learning Stats & Curve -->
+                <div class="rl-left-column">
+                  <div class="section-header">
+                    <h3>📈 Learning Statistics</h3>
+                    <button id="refresh-rl-stats" class="btn btn-sm">🔄 Refresh</button>
+                  </div>
+                  
+                  <div class="rl-stats-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+                    <div class="stat-card">
+                      <div class="stat-label">Episodes</div>
+                      <div class="stat-value" id="rl-episode-count">0</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">Total Rewards</div>
+                      <div class="stat-value" id="rl-total-rewards">0</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">Avg Reward</div>
+                      <div class="stat-value" id="rl-avg-reward">0.00</div>
+                    </div>
+                    <div class="stat-card">
+                      <div class="stat-label">Q-Table Size</div>
+                      <div class="stat-value" id="rl-qtable-size">0</div>
+                    </div>
+                  </div>
+                  
+                  <!-- Learning Curve Chart -->
+                  <div class="section-header">
+                    <h3>📊 Learning Curve</h3>
+                  </div>
+                  <div class="chart-container" style="height: 250px; background: #1a1a2e; border-radius: 8px; padding: 12px;">
+                    <canvas id="learning-curve-canvas"></canvas>
+                  </div>
+                  
+                  <!-- Hyperparameters -->
+                  <div class="section-header" style="margin-top: 16px;">
+                    <h3>⚙️ Hyperparameters</h3>
+                  </div>
+                  <div class="hyperparams-form" style="background: #1a1a2e; border-radius: 8px; padding: 16px;">
+                    <div class="form-row" style="display: flex; gap: 16px; margin-bottom: 12px;">
+                      <div class="form-group" style="flex: 1;">
+                        <label>Exploration Rate (ε)</label>
+                        <input type="range" id="exploration-rate" min="0" max="100" value="20" style="width: 100%;">
+                        <span id="exploration-rate-value">0.20</span>
+                      </div>
+                      <div class="form-group" style="flex: 1;">
+                        <label>Learning Rate (α)</label>
+                        <input type="range" id="learning-rate" min="1" max="50" value="10" style="width: 100%;">
+                        <span id="learning-rate-value">0.10</span>
+                      </div>
+                    </div>
+                    <button id="apply-hyperparams" class="btn btn-primary">Apply Changes</button>
+                  </div>
+                </div>
+                
+                <!-- Right Column: Q-Table & Feedback -->
+                <div class="rl-right-column">
+                  <div class="section-header">
+                    <h3>📋 Q-Table (Top Entries)</h3>
+                    <button id="refresh-qtable" class="btn btn-sm">🔄 Refresh</button>
+                  </div>
+                  
+                  <div class="qtable-container" style="max-height: 280px; overflow-y: auto; background: #1a1a2e; border-radius: 8px;">
+                    <table class="qtable" style="width: 100%; font-size: 12px;">
+                      <thead>
+                        <tr>
+                          <th>State</th>
+                          <th>Action</th>
+                          <th>Q-Value</th>
+                          <th>Visits</th>
+                        </tr>
+                      </thead>
+                      <tbody id="qtable-body">
+                        <tr><td colspan="4" style="text-align: center; color: #666;">No Q-Table data yet</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <!-- Human Feedback Form -->
+                  <div class="section-header" style="margin-top: 16px;">
+                    <h3>👤 Human Feedback</h3>
+                  </div>
+                  <div class="feedback-form" style="background: #1a1a2e; border-radius: 8px; padding: 16px;">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                      <label>Episode ID</label>
+                      <select id="feedback-episode-select" style="width: 100%; padding: 8px; background: #2a2a3e; border: 1px solid #444; border-radius: 4px; color: #fff;">
+                        <option value="">Select an episode...</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                      <label>Step</label>
+                      <select id="feedback-step-select" style="width: 100%; padding: 8px; background: #2a2a3e; border: 1px solid #444; border-radius: 4px; color: #fff;" disabled>
+                        <option value="">Select episode first...</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                      <label>Feedback Type</label>
+                      <div class="feedback-buttons" style="display: flex; gap: 8px;">
+                        <button class="feedback-btn" data-value="2" style="flex: 1; padding: 12px; background: #2ecc71; border: none; border-radius: 4px; cursor: pointer;">👍 Good (+2)</button>
+                        <button class="feedback-btn" data-value="1" style="flex: 1; padding: 12px; background: #3498db; border: none; border-radius: 4px; cursor: pointer;">👌 OK (+1)</button>
+                        <button class="feedback-btn" data-value="-1" style="flex: 1; padding: 12px; background: #e67e22; border: none; border-radius: 4px; cursor: pointer;">👎 Bad (-1)</button>
+                        <button class="feedback-btn" data-value="-2" style="flex: 1; padding: 12px; background: #e74c3c; border: none; border-radius: 4px; cursor: pointer;">❌ Wrong (-2)</button>
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                      <label>Comment (optional)</label>
+                      <textarea id="feedback-comment" rows="2" style="width: 100%; padding: 8px; background: #2a2a3e; border: 1px solid #444; border-radius: 4px; color: #fff; resize: vertical;"></textarea>
+                    </div>
+                    <button id="submit-feedback" class="btn btn-primary" disabled>Submit Feedback</button>
+                  </div>
+                  
+                  <!-- Recent Episodes -->
+                  <div class="section-header" style="margin-top: 16px;">
+                    <h3>📜 Recent Episodes</h3>
+                  </div>
+                  <div class="episodes-list" style="max-height: 200px; overflow-y: auto; background: #1a1a2e; border-radius: 8px; padding: 8px;">
+                    <div id="episodes-container">
+                      <div style="text-align: center; color: #666; padding: 20px;">No episodes yet</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stat-item"><span class="stat-label">Boxes:</span><span class="stat-value" id="stat-boxes">0</span></div>
+        <div class="stat-item"><span class="stat-label">Visible:</span><span class="stat-value" id="stat-visible">0</span></div>
+        <div class="stat-item"><span class="stat-label">Regions:</span><span class="stat-value" id="stat-regions">0</span></div>
+        <div class="stat-item"><span class="stat-label">Lines:</span><span class="stat-value" id="stat-lines">0</span></div>
+        <div class="stat-item"><span class="stat-label">Zoom:</span><span class="stat-value" id="stat-zoom">100%</span></div>
+        <div class="stat-item"><span class="stat-label">Mode:</span><span class="stat-value" id="stat-mode">Boxes</span></div>
+    </div>
+
+    <!-- Tooltip Element -->
+    <div class="tooltip" id="tooltip" style="display: none;"></div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // ==================== Category Colors ====================
+        const CATEGORY_COLORS = {
+            button: '#4CAF50',
+            icon: '#2196F3',
+            input: '#FF9800',
+            text: '#9C27B0',
+            image: '#E91E63',
+            checkbox: '#00BCD4',
+            radio: '#00BCD4',
+            dropdown: '#795548',
+            link: '#03A9F4',
+            container: '#607D8B',
+            header: '#455A64',
+            footer: '#455A64',
+            menu: '#FFC107',
+            toolbar: '#8BC34A',
+            unknown: '#666666'
+        };
+
+        // ==================== State ====================
+        const state = {
+            ws: null,
+            connected: false,
+            running: false,
+            boxes: [],
+            regions: [],
+            lines: [],
+            
+            // View state
+            viewMode: 'boxes', // boxes, grid, regions
+            layers: { boxes: true, regions: true, lines: true, grid: false },
+            categoryFilters: new Set(['button', 'icon', 'input', 'text', 'image', 'checkbox', 'dropdown', 'link', 'container', 'menu', 'toolbar', 'unknown']),
+            showLabels: true,
+            showConfidence: false,
+            selectedBox: null,
+            
+            // Canvas state
+            canvas: null,
+            gridCanvas: null,
+            ctx: null,
+            gridCtx: null,
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            isDragging: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            backgroundImage: null,
+            
+            // Stats
+            categoryStats: {}
+        };
+
+        // ==================== DOM Elements ====================
+        const $ = id => document.getElementById(id);
+        const els = {
+            connIndicator: $('conn-indicator'),
+            connStatus: $('conn-status'),
+            wsUrl: $('ws-url'),
+            btnConnect: $('btn-connect'),
+            btnCapture: $('btn-capture'),
+            btnStart: $('btn-start'),
+            btnStop: $('btn-stop'),
+            btnRunOcr: $('btn-run-ocr'),
+            btnRunCnn: $('btn-run-cnn'),
+            canvasWrapper: $('canvas-wrapper'),
+            canvas: $('main-canvas'),
+            gridCanvas: $('grid-overlay'),
+            logContainer: $('log-container'),
+            tooltip: $('tooltip'),
+            categoryFilters: $('category-filters'),
+            catDistribution: $('cat-distribution'),
+            regionsList: $('regions-list'),
+            selectedElement: $('selected-element'),
+            
+            // Stats
+            statBoxes: $('stat-boxes'),
+            statVisible: $('stat-visible'),
+            statRegions: $('stat-regions'),
+            statLines: $('stat-lines'),
+            statZoom: $('stat-zoom'),
+            statMode: $('stat-mode'),
+            
+            // Detection stats
+            detBoxes: $('det-boxes'),
+            detRegions: $('det-regions'),
+            detLines: $('det-lines'),
+            detText: $('det-text'),
+            detConfidence: $('det-confidence'),
+            
+            // Learning
+            learnSamples: $('learn-samples'),
+            learnQueue: $('learn-queue'),
+            btnGetUncertain: $('btn-get-uncertain'),
+            btnExportData: $('btn-export-data'),
+            
+            // RL Panel - NEU
+            rlPanelBtn: document.querySelector('[data-tab="rl"]'),
+            rlPanel: $('rl-panel'),
+            rlEpisodeCount: $('rl-episode-count'),
+            rlTotalRewards: $('rl-total-rewards'),
+            rlAvgReward: $('rl-avg-reward'),
+            rlQtableSize: $('rl-qtable-size'),
+            rlCurveCanvas: $('learning-curve-canvas'),
+            qtableBody: $('qtable-body'),
+            explorationRate: $('exploration-rate'),
+            explorationRateValue: $('exploration-rate-value'),
+            learningRate: $('learning-rate'),
+            learningRateValue: $('learning-rate-value'),
+            applyHyperparams: $('apply-hyperparams'),
+            feedbackEpisodeSelect: $('feedback-episode-select'),
+            feedbackStepSelect: $('feedback-step-select'),
+            feedbackComment: $('feedback-comment'),
+            submitFeedback: $('submit-feedback'),
+            episodesContainer: $('episodes-container'),
+            refreshRlStats: $('refresh-rl-stats'),
+            refreshQtable: $('refresh-qtable')
+        };
+
+        // ==================== Logging ====================
+        function log(msg, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            els.logContainer.insertBefore(entry, els.logContainer.firstChild);
+            if (els.logContainer.children.length > 30) {
+                els.logContainer.removeChild(els.logContainer.lastChild);
+            }
+        }
+
+        // ==================== WebSocket ====================
+        function connect() {
+            const url = els.wsUrl.value;
+            if (!url) return;
+
+            log(`Connecting to ${url}...`);
+            state.ws = new WebSocket(url);
+
+            state.ws.onopen = () => {
+                state.connected = true;
+                updateConnectionUI();
+                log('Connected!', 'success');
+                send({ type: 'handshake', clientId: 'moire-grid-viz' });
+                send({ type: 'get_training_stats' });
+            };
+
+            state.ws.onclose = () => {
+                state.connected = false;
+                state.running = false;
+                updateConnectionUI();
+                log('Disconnected', 'warning');
+            };
+
+            state.ws.onerror = () => log('Connection error', 'error');
+
+            state.ws.onmessage = (e) => {
+                try {
+                    handleMessage(JSON.parse(e.data));
+                } catch (err) {
+                    console.error('Parse error:', err);
+                }
+            };
+        }
+
+        function disconnect() {
+            if (state.ws) {
+                state.ws.close();
+                state.ws = null;
+            }
+        }
+
+        function send(msg) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify(msg));
+            }
+        }
+
+        function handleMessage(msg) {
+            // Check for RL messages first - NEU
+            if (msg.type.startsWith('rl_') || msg.type === 'feedback_applied') {
+                handleRLMessage(msg);
+                return;
+            }
+
+            switch (msg.type) {
+                case 'handshake_ack':
+                    log(`Server features: ${JSON.stringify(msg.features || {})}`, 'success');
+                    break;
+
+                case 'moire_detection_result':
+                case 'detection':
+                    handleDetectionResult(msg);
+                    break;
+
+                case 'started':
+                    state.running = true;
+                    updateRunningUI();
+                    log('Live detection started', 'success');
+                    break;
+
+                case 'stopped':
+                    state.running = false;
+                    updateRunningUI();
+                    log('Live detection stopped', 'info');
+                    break;
+
+                case 'ocr_complete':
+                    handleOCRComplete(msg);
+                    break;
+
+                case 'cnn_complete':
+                    handleCNNComplete(msg);
+                    break;
+
+                case 'training_stats':
+                    handleTrainingStats(msg.stats);
+                    break;
+
+                case 'uncertain_elements':
+                    handleUncertainElements(msg);
+                    break;
+
+                case 'action_visualization':
+                    handleActionVisualization(msg.action);
+                    break;
+
+                case 'state_changed':
+                    log(`State v${msg.version}: +${msg.delta?.added?.length || 0} -${msg.delta?.removed?.length || 0}`, 'info');
+                    break;
+
+                case 'active_learning_update':
+                    els.learnQueue.textContent = msg.queueSize || 0;
+                    log(`Active Learning: ${msg.stats?.saved || 0} saved, ${msg.stats?.queued || 0} queued`);
+                    break;
+            }
+        }
+
+        // ==================== Detection Handling ====================
+        function handleDetectionResult(msg) {
+            state.boxes = msg.boxes || [];
+            state.regions = msg.regions || [];
+            state.lines = msg.lines || [];
+            
+            // Load screenshot
+            if (msg.screenshot) {
+                loadBackgroundImage('data:image/png;base64,' + msg.screenshot);
+            }
+            
+            // Update stats
+            updateDetectionStats();
+            updateCategoryDistribution();
+            updateRegionsList();
+            drawCanvas();
+            
+            log(`Detection: ${state.boxes.length} boxes, ${state.regions.length} regions, ${state.lines.length} lines`, 'success');
+        }
+
+        function handleOCRComplete(msg) {
+            if (msg.boxes) {
+                state.boxes = msg.boxes;
+            }
+            updateDetectionStats();
+            drawCanvas();
+            log(`OCR complete: ${msg.textCount || 0} texts found`, 'success');
+        }
+
+        function handleCNNComplete(msg) {
+            if (msg.boxes) {
+                state.boxes = msg.boxes;
+            }
+            updateDetectionStats();
+            updateCategoryDistribution();
+            drawCanvas();
+            log('CNN classification complete', 'success');
+        }
+
+        function handleTrainingStats(stats) {
+            if (!stats) return;
+            els.learnSamples.textContent = stats.totalSamples || 0;
+            els.learnQueue.textContent = stats.uncertainCount || 0;
+        }
+
+        function handleUncertainElements(msg) {
+            log(`Uncertain elements: ${msg.elements?.length || 0} (total: ${msg.totalQueued})`, 'info');
+            // Could show review dialog here
+        }
+
+        function handleActionVisualization(action) {
+            if (!action) return;
+            const { type, x, y, text } = action;
+            log(`Agent: ${type} at (${x}, ${y})${text ? ' - ' + text : ''}`, 'info');
+            showClickIndicator(x, y, type, text);
+        }
+
+        // ==================== Stats Updates ====================
+        function updateDetectionStats() {
+            const boxes = state.boxes;
+            const visibleBoxes = getVisibleBoxes();
+            const textCount = boxes.filter(b => b.text).length;
+            const avgConf = boxes.length > 0 
+                ? boxes.reduce((sum, b) => sum + (b.confidence || 0), 0) / boxes.length 
+                : 0;
+                
+            els.detBoxes.textContent = boxes.length;
+            els.detRegions.textContent = state.regions.length;
+            els.detLines.textContent = state.lines.length;
+            els.detText.textContent = textCount;
+            els.detConfidence.textContent = (avgConf * 100).toFixed(1) + '%';
+            
+            els.statBoxes.textContent = boxes.length;
+            els.statVisible.textContent = visibleBoxes.length;
+            els.statRegions.textContent = state.regions.length;
+            els.statLines.textContent = state.lines.length;
+        }
+
+        function updateCategoryDistribution() {
+            const stats = {};
+            for (const box of state.boxes) {
+                const cat = box.category || 'unknown';
+                stats[cat] = (stats[cat] || 0) + 1;
+            }
+            state.categoryStats = stats;
+            
+            // Update distribution bar
+            const total = state.boxes.length || 1;
+            let html = '';
+            for (const [cat, count] of Object.entries(stats)) {
+                const width = (count / total) * 100;
+                const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.unknown;
+                html += `<div class="cat-bar" style="width: ${width}%; background: ${color};"></div>`;
+            }
+            els.catDistribution.innerHTML = html;
+            
+            // Update filter counts
+            document.querySelectorAll('.cat-tag').forEach(tag => {
+                const cat = tag.dataset.cat;
+                const count = stats[cat] || 0;
+                tag.title = `${cat}: ${count}`;
+            });
+        }
+
+        function updateRegionsList() {
+            if (state.regions.length === 0) {
+                els.regionsList.innerHTML = '<div style="color: var(--text-muted); font-size: 10px;">No regions detected</div>';
+                return;
+            }
+            
+            let html = '';
+            for (const region of state.regions) {
+                const width = region.maxX - region.minX;
+                const height = region.maxY - region.minY;
+                html += `
+                    <div class="region-card" data-region="${region.id}">
+                        <div class="region-header">
+                            <span>Region #${region.id}</span>
+                            <span style="color: var(--text-muted);">${region.boxIndices?.length || 0} boxes</span>
+                        </div>
+                        <div class="region-stats">${width}×${height}px</div>
+                    </div>
+                `;
+            }
+            els.regionsList.innerHTML = html;
+            
+            // Click handler for regions
+            els.regionsList.querySelectorAll('.region-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const regionId = parseInt(card.dataset.region);
+                    highlightRegion(regionId);
+                });
+            });
+        }
+
+        // ==================== Canvas ====================
+        function initCanvas() {
+            state.canvas = els.canvas;
+            state.gridCanvas = els.gridCanvas;
+            state.ctx = state.canvas.getContext('2d');
+            state.gridCtx = state.gridCanvas.getContext('2d');
+            resizeCanvas();
+
+            els.canvasWrapper.addEventListener('mousedown', onMouseDown);
+            els.canvasWrapper.addEventListener('mousemove', onMouseMove);
+            els.canvasWrapper.addEventListener('mouseup', onMouseUp);
+            els.canvasWrapper.addEventListener('mouseleave', onMouseUp);
+            els.canvasWrapper.addEventListener('wheel', onWheel);
+            els.canvasWrapper.addEventListener('click', onCanvasClick);
+
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        function resizeCanvas() {
+            const rect = els.canvasWrapper.getBoundingClientRect();
+            state.canvas.width = rect.width;
+            state.canvas.height = rect.height;
+            state.gridCanvas.width = rect.width;
+            state.gridCanvas.height = rect.height;
+            drawCanvas();
+        }
+
+        function loadBackgroundImage(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                state.backgroundImage = img;
+                drawCanvas();
+            };
+            img.src = dataUrl;
+        }
+
+        function getVisibleBoxes() {
+            return state.boxes.filter(box => {
+                const cat = box.category || 'unknown';
+                return state.categoryFilters.has(cat);
+            });
+        }
+
+        function drawCanvas() {
+            const { ctx, canvas, scale, offsetX, offsetY, backgroundImage, layers } = state;
+            
+            // Clear
+            ctx.fillStyle = '#0d0d1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+
+            // Background image
+            if (backgroundImage) {
+                ctx.drawImage(backgroundImage, 0, 0);
+            }
+
+            // Draw grid overlay if enabled
+            if (layers.grid) {
+                drawGrid(ctx, scale);
+            }
+
+            // Draw regions if enabled
+            if (layers.regions && state.regions.length > 0) {
+                drawRegions(ctx, scale);
+            }
+
+            // Draw lines if enabled
+            if (layers.lines && state.lines.length > 0) {
+                drawLines(ctx, scale);
+            }
+
+            // Draw boxes if enabled
+            if (layers.boxes) {
+                drawBoxes(ctx, scale);
+            }
+
+            ctx.restore();
+
+            // Update zoom display
+            els.statZoom.textContent = `${Math.round(scale * 100)}%`;
+        }
+
+        function drawGrid(ctx, scale) {
+            const gridSize = 50;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1 / scale;
+            
+            const width = state.backgroundImage?.width || 1920;
+            const height = state.backgroundImage?.height || 1080;
+            
+            for (let x = 0; x <= width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            
+            for (let y = 0; y <= height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawRegions(ctx, scale) {
+            for (const region of state.regions) {
+                const { minX, minY, maxX, maxY } = region;
+                const width = maxX - minX;
+                const height = maxY - minY;
+                
+                // Fill
+                ctx.fillStyle = 'rgba(255, 193, 7, 0.1)';
+                ctx.fillRect(minX, minY, width, height);
+                
+                // Border
+                ctx.strokeStyle = '#FFC107';
+                ctx.lineWidth = 2 / scale;
+                ctx.setLineDash([5 / scale, 5 / scale]);
+                ctx.strokeRect(minX, minY, width, height);
+                ctx.setLineDash([]);
+                
+                // Label
+                ctx.fillStyle = '#FFC107';
+                ctx.font = `${12 / scale}px sans-serif`;
+                ctx.fillText(`Region #${region.id}`, minX + 4, minY + 14 / scale);
+            }
+        }
+
+        function drawLines(ctx, scale) {
+            for (const line of state.lines) {
+                if (!line.boxIndices || line.boxIndices.length < 2) continue;
+                
+                ctx.strokeStyle = line.orientation === 'horizontal' ? '#4CAF50' : '#2196F3';
+                ctx.lineWidth = 2 / scale;
+                ctx.setLineDash([3 / scale, 3 / scale]);
+                
+                ctx.beginPath();
+                const firstBox = state.boxes[line.boxIndices[0]];
+                const lastBox = state.boxes[line.boxIndices[line.boxIndices.length - 1]];
+                
+                if (firstBox && lastBox) {
+                    const startX = firstBox.x + firstBox.width / 2;
+                    const startY = firstBox.y + firstBox.height / 2;
+                    const endX = lastBox.x + lastBox.width / 2;
+                    const endY = lastBox.y + lastBox.height / 2;
+                    
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+        }
+
+        function drawBoxes(ctx, scale) {
+            const visibleBoxes = getVisibleBoxes();
+            
+            for (const box of visibleBoxes) {
+                const cat = box.category || 'unknown';
+                const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.unknown;
+                const isSelected = state.selectedBox && state.selectedBox.id === box.id;
+                
+                // Fill for selected
+                if (isSelected) {
+                    ctx.fillStyle = 'rgba(63, 185, 80, 0.2)';
+                    ctx.fillRect(box.x, box.y, box.width, box.height);
+                }
+                
+                // Border
+                ctx.strokeStyle = color;
+                ctx.lineWidth = (isSelected ? 3 : 2) / scale;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                // Label
+                if (state.showLabels) {
+                    ctx.fillStyle = color;
+                    ctx.font = `bold ${10 / scale}px sans-serif`;
+                    let label = cat;
+                    if (state.showConfidence && box.confidence) {
+                        label += ` (${(box.confidence * 100).toFixed(0)}%)`;
+                    }
+                    ctx.fillText(label, box.x, box.y - 3 / scale);
+                }
+
+                // Text indicator
+                if (box.text) {
+                    ctx.fillStyle = 'rgba(255, 152, 0, 0.8)';
+                    ctx.fillRect(box.x + box.width - 14 / scale, box.y, 14 / scale, 14 / scale);
+                    ctx.fillStyle = '#000';
+                    ctx.font = `${10 / scale}px sans-serif`;
+                    ctx.fillText('T', box.x + box.width - 11 / scale, box.y + 10 / scale);
+                }
+            }
+        }
+
+        function highlightRegion(regionId) {
+            const region = state.regions.find(r => r.id === regionId);
+            if (!region) return;
+            
+            // Center on region
+            const centerX = (region.minX + region.maxX) / 2;
+            const centerY = (region.minY + region.maxY) / 2;
+            
+            const rect = els.canvasWrapper.getBoundingClientRect();
+            state.offsetX = rect.width / 2 - centerX * state.scale;
+            state.offsetY = rect.height / 2 - centerY * state.scale;
+            
+            drawCanvas();
+            log(`Focused on region #${regionId}`, 'info');
+        }
+
+        // ==================== Canvas Events ====================
+        function onMouseDown(e) {
+            if (e.button === 0) {
+                state.isDragging = true;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+                state.canvas.classList.add('dragging');
+            }
+        }
+
+        function onMouseMove(e) {
+            const rect = els.canvasWrapper.getBoundingClientRect();
+            const x = (e.clientX - rect.left - state.offsetX) / state.scale;
+            const y = (e.clientY - rect.top - state.offsetY) / state.scale;
+            
+            // Tooltip on hover
+            const hoveredBox = findBoxAt(x, y);
+            if (hoveredBox) {
+                showTooltip(e.clientX, e.clientY, hoveredBox);
+            } else {
+                hideTooltip();
+            }
+            
+            if (state.isDragging) {
+                const dx = e.clientX - state.lastMouseX;
+                const dy = e.clientY - state.lastMouseY;
+                state.offsetX += dx;
+                state.offsetY += dy;
+                state.lastMouseX = e.clientX;
+                state.lastMouseY = e.clientY;
+                drawCanvas();
+            }
+        }
+
+        function onMouseUp() {
+            state.isDragging = false;
+            state.canvas.classList.remove('dragging');
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newScale = Math.max(0.1, Math.min(10, state.scale * delta));
+            
+            const rect = els.canvasWrapper.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            
+            state.offsetX = mx - (mx - state.offsetX) * (newScale / state.scale);
+            state.offsetY = my - (my - state.offsetY) * (newScale / state.scale);
+            state.scale = newScale;
+            
+            drawCanvas();
+        }
+
+        function onCanvasClick(e) {
+            if (state.isDragging) return;
+            
+            const rect = els.canvasWrapper.getBoundingClientRect();
+            const x = (e.clientX - rect.left - state.offsetX) / state.scale;
+            const y = (e.clientY - rect.top - state.offsetY) / state.scale;
+            
+            const clickedBox = findBoxAt(x, y);
+            selectBox(clickedBox);
+        }
+
+        function findBoxAt(x, y) {
+            const visibleBoxes = getVisibleBoxes();
+            // Reverse to find topmost
+            for (let i = visibleBoxes.length - 1; i >= 0; i--) {
+                const box = visibleBoxes[i];
+                if (x >= box.x && x <= box.x + box.width &&
+                    y >= box.y && y <= box.y + box.height) {
+                    return box;
+                }
+            }
+            return null;
+        }
+
+        function selectBox(box) {
+            state.selectedBox = box;
+            drawCanvas();
+            
+            if (box) {
+                const cat = box.category || 'unknown';
+                const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.unknown;
+                els.selectedElement.innerHTML = `
+                    <div class="element-card selected">
+                        <div class="element-card-header">
+                            <span class="element-id">${box.id}</span>
+                            <span class="element-category" style="background: ${color};">${cat}</span>
+                        </div>
+                        <div class="element-coords">${box.x}, ${box.y} - ${box.width}×${box.height}</div>
+                        ${box.confidence ? `<div class="element-coords">Confidence: ${(box.confidence * 100).toFixed(1)}%</div>` : ''}
+                        ${box.text ? `<div class="element-text">"${box.text}"</div>` : ''}
+                    </div>
+                `;
+            } else {
+                els.selectedElement.innerHTML = '<div style="color: var(--text-muted); font-size: 11px;">Click on a box to select</div>';
+            }
+        }
+
+        // ==================== Tooltip ====================
+        function showTooltip(x, y, box) {
+            const cat = box.category || 'unknown';
+            const color = CATEGORY_COLORS[cat] || CATEGORY_COLORS.unknown;
+            
+            els.tooltip.innerHTML = `
+                <div class="tooltip-header">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: ${color};"></span>
+                    ${cat}
+                </div>
+                <div class="tooltip-text">
+                    ${box.text ? `"${box.text.substring(0, 50)}${box.text.length > 50 ? '...' : ''}"` : 'No text'}<br>
+                    ${box.width}×${box.height}px
+                    ${box.confidence ? ` | ${(box.confidence * 100).toFixed(0)}%` : ''}
+                </div>
+            `;
+            
+            els.tooltip.style.display = 'block';
+            els.tooltip.style.left = `${x + 15}px`;
+            els.tooltip.style.top = `${y + 15}px`;
+        }
+
+        function hideTooltip() {
+            els.tooltip.style.display = 'none';
+        }
+
+        // ==================== Click Indicator ====================
+        function showClickIndicator(x, y, type = 'click', text = null) {
+            const canvasX = x * state.scale + state.offsetX;
+            const canvasY = y * state.scale + state.offsetY;
+            
+            const indicator = document.createElement('div');
+            indicator.className = `click-indicator ${type.replace('_', '-')}`;
+            indicator.style.left = `${canvasX}px`;
+            indicator.style.top = `${canvasY}px`;
+            
+            if (type === 'type' && text) {
+                indicator.textContent = `⌨ ${text}`;
+            }
+            
+            els.canvasWrapper.appendChild(indicator);
+            
+            setTimeout(() => {
+                if (indicator.parentNode) indicator.parentNode.removeChild(indicator);
+            }, type === 'type' ? 1500 : 500);
+        }
+
+        // ==================== UI Updates ====================
+        function updateConnectionUI() {
+            els.connIndicator.classList.toggle('connected', state.connected);
+            els.connStatus.textContent = state.connected ? 'Connected' : 'Disconnected';
+            els.btnConnect.textContent = state.connected ? 'Disconnect' : 'Connect';
+            els.btnCapture.disabled = !state.connected;
+            els.btnStart.disabled = !state.connected;
+        }
+
+        function updateRunningUI() {
+            els.btnStart.disabled = state.running || !state.connected;
+            els.btnStop.disabled = !state.running;
+        }
+
+        // ==================== Event Handlers ====================
+        function setupEventListeners() {
+            // Connection
+            els.btnConnect.addEventListener('click', () => {
+                state.connected ? disconnect() : connect();
+            });
+
+            // Detection controls
+            els.btnCapture.addEventListener('click', () => {
+                send({ type: 'capture_once' });
+                log('Capture requested');
+            });
+
+            els.btnStart.addEventListener('click', () => {
+                send({ type: 'start_live', interval: 5 });
+                log('Starting live detection...');
+            });
+
+            els.btnStop.addEventListener('click', () => {
+                send({ type: 'stop_live' });
+                log('Stopping...');
+            });
+
+            els.btnRunOcr.addEventListener('click', () => {
+                send({ type: 'run_ocr' });
+                log('Running OCR...');
+            });
+
+            els.btnRunCnn.addEventListener('click', () => {
+                send({ type: 'run_cnn' });
+                log('Running CNN...');
+            });
+
+            // Layer toggles
+            document.querySelectorAll('.layer-toggle').forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const layer = toggle.dataset.layer;
+                    state.layers[layer] = !state.layers[layer];
+                    toggle.classList.toggle('active', state.layers[layer]);
+                    drawCanvas();
+                });
+            });
+
+            // Category toggles
+            document.querySelectorAll('.cat-tag').forEach(tag => {
+                tag.addEventListener('click', () => {
+                    const cat = tag.dataset.cat;
+                    if (state.categoryFilters.has(cat)) {
+                        state.categoryFilters.delete(cat);
+                        tag.classList.remove('active');
+                    } else {
+                        state.categoryFilters.add(cat);
+                        tag.classList.add('active');
+                    }
+                    updateDetectionStats();
+                    drawCanvas();
+                });
+            });
+
+            // Category filter buttons
+            els.btnCatAll.addEventListener('click', () => {
+                document.querySelectorAll('.cat-tag').forEach(tag => {
+                    state.categoryFilters.add(tag.dataset.cat);
+                    tag.classList.add('active');
+                });
+                updateDetectionStats();
+                drawCanvas();
+            });
+
+            els.btnCatNone.addEventListener('click', () => {
+                document.querySelectorAll('.cat-tag').forEach(tag => {
+                    state.categoryFilters.delete(tag.dataset.cat);
+                    tag.classList.remove('active');
+                });
+                updateDetectionStats();
+                drawCanvas();
+            });
+
+            els.btnCatInteractive.addEventListener('click', () => {
+                const interactive = ['button', 'input', 'checkbox', 'dropdown', 'link'];
+                document.querySelectorAll('.cat-tag').forEach(tag => {
+                    const cat = tag.dataset.cat;
+                    if (interactive.includes(cat)) {
+                        state.categoryFilters.add(cat);
+                        tag.classList.add('active');
+                    } else {
+                        state.categoryFilters.delete(cat);
+                        tag.classList.remove('active');
+                    }
+                });
+                updateDetectionStats();
+                drawCanvas();
+            });
+
+            els.timelineSlider.addEventListener('input', (e) => {
+                state.interval = parseInt(e.target.value);
+                els.timelineValue.textContent = `${state.interval}s`;
+            });
+
+            els.timelineSlider.addEventListener('change', () => {
+                send({ type: 'set_interval', interval: state.interval });
+            });
+
+            els.showLabels.addEventListener('change', (e) => {
+                state.showLabels = e.target.checked;
+                drawCanvas();
+            });
+
+            els.showConfidence.addEventListener('change', (e) => {
+                state.showConfidence = e.target.checked;
+                drawCanvas();
+            });
+
+            els.btnGetUncertain.addEventListener('click', () => {
+                send({ type: 'get_uncertain_elements', limit: 10 });
+                log('Requesting uncertain elements...');
+            });
+
+            els.btnExportData.addEventListener('click', () => {
+                send({ type: 'export_training_data', format: 'json' });
+                log('Exporting training data...');
+            });
+
+            // Panel collapse toggles
+            document.querySelectorAll('.panel-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    header.parentElement.classList.toggle('collapsed');
+                });
+            });
+
+            // View mode toggle
+            document.querySelectorAll('.view-mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    state.viewMode = btn.dataset.mode;
+                    els.statMode.textContent = state.viewMode.charAt(0).toUpperCase() + state.viewMode.slice(1);
+                    drawCanvas();
+                });
+            });
+
+            // RL Panel Event Handlers - NEU
+            els.rlPanelBtn.addEventListener('click', () => {
+                const panel = els.rlPanel;
+                if (panel.style.display === 'none') {
+                    panel.style.display = 'block';
+                    els.rlPanelBtn.classList.add('active');
+                    refreshRLStats();
+                } else {
+                    panel.style.display = 'none';
+                    els.rlPanelBtn.classList.remove('active');
+                }
+            });
+
+            els.refreshRlStats.addEventListener('click', refreshRLStats);
+
+            els.refreshQtable.addEventListener('click', () => {
+                send({ type: 'get_rl_qtable', limit: 20 });
+            });
+
+            els.explorationRate.addEventListener('input', (e) => {
+                const val = (parseInt(e.target.value) / 100).toFixed(2);
+                els.explorationRateValue.textContent = val;
+            });
+
+            els.learningRate.addEventListener('input', (e) => {
+                const val = (parseInt(e.target.value) / 100).toFixed(2);
+                els.learningRateValue.textContent = val;
+            });
+
+            els.applyHyperparams.addEventListener('click', () => {
+                const epsilon = parseInt(els.explorationRate.value) / 100;
+                const lr = parseInt(els.learningRate.value) / 100;
+                send({ type: 'set_exploration_rate', rate: epsilon });
+                send({ type: 'set_learning_rate', rate: lr });
+                log(`Hyperparameters updated: ε=${epsilon}, α=${lr}`, 'success');
+            });
+
+            els.feedbackEpisodeSelect.addEventListener('change', (e) => {
+                const episodeId = e.target.value;
+                if (episodeId) {
+                    send({ type: 'get_rl_episode_details', episodeId });
+                    els.feedbackStepSelect.disabled = false;
+                } else {
+                    els.feedbackStepSelect.disabled = true;
+                    els.feedbackStepSelect.innerHTML = '<option value="">Select episode first...</option>';
+                }
+            });
+
+            // Submit feedback
+            if (els.submitFeedback) {
+                els.submitFeedback.addEventListener('click', () => {
+                    const episodeId = els.feedbackEpisodeSelect.value;
+                    const step = els.feedbackStepSelect.value;
+                    const reward = parseFloat(els.submitFeedback.dataset.reward);
+                    const comment = els.feedbackComment.value;
+
+                    if (!episodeId || !step) {
+                        log('Please select episode and step', 'warning');
+                        return;
+                    }
+
+                    send({
+                        type: 'submit_feedback',
+                        episodeId,
+                        step: parseInt(step),
+                        reward,
+                        comment
+                    });
+                    log(`Feedback submitted: ${reward > 0 ? '+' : ''}${reward}`, 'success');
+                    
+                    // Reset form
+                    els.feedbackComment.value = '';
+                    document.querySelectorAll('.feedback-btn').forEach(b => b.style.outline = 'none');
+                    els.submitFeedback.disabled = true;
+                });
+            }
+        }
+
+        // ==================== Init ====================
+        function init() {
+            initCanvas();
+            setupEventListeners();
+            log('Grid Visualization ready');
+            
+            // Auto-connect
+            setTimeout(() => {
+                if (!state.connected) connect();
+            }, 1000);
+        }
+
+        // ==================== RL Panel Functions - NEU ====================
+        function setupRLPanelEvents() {
+            els.rlPanelBtn.addEventListener('click', () => {
+                const panel = els.rlPanel;
+                if (panel.style.display === 'none') {
+                    panel.style.display = 'block';
+                    els.rlPanelBtn.classList.add('active');
+                    refreshRLStats();
+                } else {
+                    panel.style.display = 'none';
+                    els.rlPanelBtn.classList.remove('active');
+                }
+            });
+
+            els.refreshRlStats.addEventListener('click', refreshRLStats);
+
+            els.refreshQtable.addEventListener('click', () => {
+                send({ type: 'get_rl_qtable', limit: 20 });
+            });
+
+            els.explorationRate.addEventListener('input', (e) => {
+                els.explorationRateValue.textContent = (parseInt(e.target.value) / 100).toFixed(2);
+            });
+
+            els.learningRate.addEventListener('input', (e) => {
+                els.learningRateValue.textContent = (parseInt(e.target.value) / 100).toFixed(2);
+            });
+
+            els.applyHyperparams.addEventListener('click', () => {
+                const epsilon = parseInt(els.explorationRate.value) / 100;
+                const lr = parseInt(els.learningRate.value) / 100;
+                send({ type: 'set_exploration_rate', rate: epsilon });
+                send({ type: 'set_learning_rate', rate: lr });
+                log(`Hyperparameters updated: ε=${epsilon}, α=${lr}`, 'success');
+            });
+
+            els.feedbackEpisodeSelect.addEventListener('change', (e) => {
+                els.feedbackStepSelect.disabled = e.target.value === '' ? true : false;
+            });
+        }
+
+        function refreshRLStats() {
+            send({ type: 'get_rl_stats' });
+            send({ type: 'get_rl_episodes', limit: 10 });
+            send({ type: 'get_rl_qtable', limit: 20 });
+            send({ type: 'get_rl_learning_curve' });
+        }
+
+        function handleRLMessage(msg) {
+            switch (msg.type) {
+                case 'rl_stats':
+                    updateRLStats(msg.stats);
+                    break;
+                case 'rl_episodes':
+                    updateEpisodesList(msg.episodes);
+                    updateEpisodeSelect(msg.episodes);
+                    break;
+                case 'rl_qtable':
+                    updateQTable(msg.entries);
+                    break;
+                case 'rl_learning_curve':
+                    drawLearningCurve(msg.data);
+                    break;
+                case 'rl_episode_details':
+                    updateStepSelect(msg.transitions);
+                    break;
+                case 'feedback_applied':
+                    log(`Feedback applied to Q-value`, 'success');
+                    refreshRLStats();
+                    break;
+            }
+        }
+
+        function updateRLStats(stats) {
+            if (!stats) return;
+            els.rlEpisodeCount.textContent = stats.episodeCount || 0;
+            els.rlTotalRewards.textContent = (stats.totalRewards || 0).toFixed(1);
+            els.rlAvgReward.textContent = (stats.avgReward || 0).toFixed(2);
+            els.rlQtableSize.textContent = stats.qtableSize || 0;
+        }
+
+        function updateEpisodesList(episodes) {
+            if (!episodes || episodes.length === 0) {
+                els.episodesContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No episodes yet</div>';
+                return;
+            }
+
+            let html = '';
+            for (const ep of episodes) {
+                const statusColor = ep.success ? '#2ecc71' : (ep.completed ? '#e74c3c' : '#f39c12');
+                const statusIcon = ep.success ? '✓' : (ep.completed ? '✗' : '⋯');
+                html += `
+                    <div class="stat-card" style="border-left: 3px solid ${statusColor}; padding: 8px; margin-bottom: 4px;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 11px;">${ep.taskDescription?.substring(0, 40) || 'Episode ' + ep.id}</div>
+                            <div style="font-size: 9px; color: #888;">${ep.stepCount || 0} steps | ${new Date(ep.startTime).toLocaleTimeString()}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="color: ${statusColor}; font-weight: bold;">${statusIcon}</span>
+                            <div style="font-size: 10px; color: ${ep.totalReward >= 0 ? '#2ecc71' : '#e74c3c'};">
+                                ${ep.totalReward >= 0 ? '+' : ''}${(ep.totalReward || 0).toFixed(1)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            els.episodesContainer.innerHTML = html;
+        }
+
+        function updateEpisodeSelect(episodes) {
+            if (!episodes) return;
+            let html = '<option value="">Select an episode...</option>';
+            for (const ep of episodes) {
+                html += `<option value="${ep.id}">Episode ${ep.id} - ${ep.taskDescription?.substring(0, 30) || 'No description'}</option>`;
+            }
+            els.feedbackEpisodeSelect.innerHTML = html;
+        }
+
+        function updateStepSelect(transitions) {
+            if (!transitions) return;
+            let html = '<option value="">Select a step...</option>';
+            for (let i = 0; i < transitions.length; i++) {
+                const t = transitions[i];
+                html += `<option value="${i}">Step ${i}: ${t.actionDescription?.substring(0, 40) || t.actionKey}</option>`;
+            }
+            els.feedbackStepSelect.innerHTML = html;
+        }
+
+        function updateQTable(entries) {
+            if (!entries || entries.length === 0) {
+                els.qtableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">No Q-Table data yet</td></tr>';
+                return;
+            }
+
+            let html = '';
+            for (const entry of entries) {
+                const qColor = entry.qValue >= 0 ? '#2ecc71' : '#e74c3c';
+                html += `
+                    <tr>
+                        <td style="max-width: 120px; overflow: hidden; text-overflow: ellipsis;">${entry.stateDescription?.substring(0, 30) || entry.stateHash}</td>
+                        <td style="max-width: 100px; overflow: hidden; text-overflow: ellipsis;">${entry.actionDescription?.substring(0, 25) || entry.actionKey}</td>
+                        <td style="color: ${qColor}; font-weight: bold;">${entry.qValue.toFixed(3)}</td>
+                        <td>${entry.visitCount}</td>
+                    </tr>
+                `;
+            }
+            els.qtableBody.innerHTML = html;
+        }
+
+        function drawLearningCurve(data) {
+            if (!data || data.length === 0 || !els.rlCurveCanvas) return;
+
+            const canvas = els.rlCurveCanvas;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width - 24;
+            canvas.height = rect.height - 24;
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 30;
+
+            // Clear
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(0, 0, w, h);
+
+            // Find min/max
+            const rewards = data.map(d => d.reward);
+            const minR = Math.min(...rewards, 0);
+            const maxR = Math.max(...rewards, 1);
+            const range = maxR - minR || 1;
+
+            // Draw axes
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, h - padding);
+            ctx.lineTo(w - padding, h - padding);
+            ctx.stroke();
+
+            // Draw zero line if needed
+            if (minR < 0 && maxR > 0) {
+                const zeroY = h - padding - ((0 - minR) / range) * (h - 2 * padding);
+                ctx.strokeStyle = '#666';
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.moveTo(padding, zeroY);
+                ctx.lineTo(w - padding, zeroY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw curve
+            ctx.strokeStyle = '#58a6ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            for (let i = 0; i < data.length; i++) {
+                const x = padding + (i / (data.length - 1 || 1)) * (w - 2 * padding);
+                const y = h - padding - ((data[i].reward - minR) / range) * (h - 2 * padding);
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+
+            // Draw points
+            ctx.fillStyle = '#58a6ff';
+            for (let i = 0; i < data.length; i++) {
+                const x = padding + (i / (data.length - 1 || 1)) * (w - 2 * padding);
+                const y = h - padding - ((data[i].reward - minR) / range) * (h - 2 * padding);
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Labels
+            ctx.fillStyle = '#888';
+            ctx.font = '10px sans-serif';
+            ctx.fillText('Episode', w / 2, h - 5);
+            ctx.save();
+            ctx.translate(10, h / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Reward', 0, 0);
+            ctx.restore();
+        }
+
+        // Feedback buttons click handler
+        document.querySelectorAll('.feedback-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.feedback-btn').forEach(b => b.style.outline = 'none');
+                btn.style.outline = '2px solid #fff';
+                if (els.submitFeedback) {
+                    els.submitFeedback.disabled = false;
+                    els.submitFeedback.dataset.reward = btn.dataset.value;
+                }
+            });
+        });
+
+        // Show/hide labels and confidence checkboxes
+        const showLabelsCheckbox = $('show-labels');
+        const showConfidenceCheckbox = $('show-confidence');
+        
+        if (showLabelsCheckbox) {
+            showLabelsCheckbox.addEventListener('change', (e) => {
+                state.showLabels = e.target.checked;
+                drawCanvas();
+            });
+        }
+        
+        if (showConfidenceCheckbox) {
+            showConfidenceCheckbox.addEventListener('change', (e) => {
+                state.showConfidence = e.target.checked;
+                drawCanvas();
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+    </script>
+</body>
+</html>

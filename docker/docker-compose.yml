@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # Tesseract OCR Service
+  ocr:
+    build:
+      context: .
+      dockerfile: Dockerfile.ocr
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../detection_results:/data/detection_results
+      - ocr-cache:/data/cache
+    environment:
+      - TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
+      - OCR_LANG=eng+deu
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  ocr-cache:

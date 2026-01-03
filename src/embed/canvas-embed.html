@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moire Canvas - Embeddable</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0a0a14;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #eee;
+        }
+
+        /* Simple Layout */
+        .canvas-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: #12121e;
+            border-bottom: 1px solid #1e1e3a;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-right: 12px;
+            border-right: 1px solid #1e1e3a;
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-label {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 32px;
+            height: 18px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333;
+            transition: .3s;
+            border-radius: 18px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #00d9ff;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(14px);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            font-size: 10px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-dot.connected { background: #4caf50; }
+        .status-dot.streaming { background: #00d9ff; animation: pulse 1.5s infinite; }
+        .status-dot.disconnected { background: #e94560; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .toolbar-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 4px;
+            background: rgba(0, 217, 255, 0.2);
+            color: #00d9ff;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: rgba(0, 217, 255, 0.4);
+        }
+
+        .toolbar-btn:active {
+            background: rgba(0, 217, 255, 0.6);
+        }
+
+        .toolbar-btn.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .metric-small {
+            font-size: 10px;
+            color: #888;
+        }
+
+        .metric-value {
+            color: #00d9ff;
+            font-family: monospace;
+        }
+
+        /* Main Canvas Area */
+        .canvas-viewport {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .canvas-viewport:active {
+            cursor: grabbing;
+        }
+
+        .canvas-world {
+            position: absolute;
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        #backgroundCanvas { z-index: 1; }
+        #boxCanvas { z-index: 2; }
+        #labelCanvas { z-index: 3; }
+        #interactionCanvas { z-index: 4; }
+
+        /* Grid Pattern */
+        .grid-pattern {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(0, 217, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 217, 255, 0.015) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+        }
+
+        /* Zoom Control */
+        .zoom-control {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-size: 11px;
+        }
+
+        .zoom-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .zoom-btn:hover {
+            background: rgba(0, 217, 255, 0.3);
+        }
+
+        /* Box Info Tooltip */
+        .box-tooltip {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid #00d9ff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            max-width: 200px;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .tooltip-key { color: #888; }
+        .tooltip-val { color: #00d9ff; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="canvas-app">
+        <!-- Compact Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <div class="status-badge">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Connecting...</span>
+                </div>
+            </div>
+
+            <div class="toolbar-group">
+                <button class="toolbar-btn" id="btnOCR" title="Run OCR">🔤</button>
+                <button class="toolbar-btn" id="btnCapture" title="Capture Once">📷</button>
+            </div>
+
+            <div class="toolbar-group">
+                <div class="toggle-row">
+                    <span class="toggle-label">Moiré</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleMoire">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-row">
+                    <span class="toggle-label">Auto</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleAuto" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="toolbar-group">
+                <span class="metric-small">Boxes: <span class="metric-value" id="metricBoxes">0</span></span>
+                <span class="metric-small">Labels: <span class="metric-value" id="metricLabels">0</span></span>
+                <span class="metric-small">FPS: <span class="metric-value" id="metricFPS">0</span></span>
+            </div>
+        </div>
+
+        <!-- Canvas Viewport -->
+        <div class="canvas-viewport" id="viewport">
+            <div class="grid-pattern"></div>
+            <div class="canvas-world" id="canvasWorld">
+                <canvas id="backgroundCanvas"></canvas>
+                <canvas id="boxCanvas"></canvas>
+                <canvas id="labelCanvas"></canvas>
+                <canvas id="interactionCanvas"></canvas>
+            </div>
+
+            <div class="zoom-control">
+                <button class="zoom-btn" id="btnZoomOut">−</button>
+                <span id="zoomValue">100%</span>
+                <button class="zoom-btn" id="btnZoomIn">+</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="box-tooltip" id="tooltip"></div>
+
+    <script>
+        // ======================================
+        // Moire Canvas - Electron Embeddable
+        // Communicates via postMessage API
+        // ======================================
+
+        const EMBED_VERSION = '1.0.0';
+
+        // Config
+        const config = {
+            wsUrl: 'ws://localhost:8765',
+            minZoom: 0.1,
+            maxZoom: 5,
+            zoomStep: 0.1,
+            embedMode: window.parent !== window || window.opener,
+            boxColors: {
+                default: '#00d9ff',
+                text: '#4caf50',
+                icon: '#ff9800',
+                button: '#e94560'
+            }
+        };
+
+        // State
+        let ws = null;
+        let isConnected = false;
+        let isStreaming = false;
+        let zoom = 1;
+        let panX = 0, panY = 0;
+        let isPanning = false;
+        let lastMouse = { x: 0, y: 0 };
+        let boxes = [];
+        let bgImage = null;
+        let canvasW = 1920, canvasH = 1080;
+        let hoveredBox = null;
+        let fpsHistory = [];
+        let lastFrameTime = 0;
+
+        // Elements
+        const viewport = document.getElementById('viewport');
+        const world = document.getElementById('canvasWorld');
+        const bgCanvas = document.getElementById('backgroundCanvas');
+        const boxCanvas = document.getElementById('boxCanvas');
+        const labelCanvas = document.getElementById('labelCanvas');
+        const interCanvas = document.getElementById('interactionCanvas');
+
+        const bgCtx = bgCanvas.getContext('2d');
+        const boxCtx = boxCanvas.getContext('2d');
+        const labelCtx = labelCanvas.getContext('2d');
+        const interCtx = interCanvas.getContext('2d');
+
+        // ======================================
+        // postMessage API (for Electron embedding)
+        // ======================================
+
+        window.addEventListener('message', (e) => {
+            const msg = e.data;
+            if (!msg || typeof msg !== 'object') return;
+
+            switch (msg.type) {
+                case 'moire:init':
+                    // Initialize with custom WebSocket URL
+                    if (msg.wsUrl) config.wsUrl = msg.wsUrl;
+                    connect();
+                    sendToParent({ type: 'moire:ready', version: EMBED_VERSION });
+                    break;
+
+                case 'moire:setBoxes':
+                    // Directly set boxes from parent
+                    boxes = msg.boxes || [];
+                    redrawBoxes();
+                    redrawLabels();
+                    updateLabelCount();
+                    sendToParent({ type: 'moire:boxesUpdated', count: boxes.length });
+                    break;
+
+                case 'moire:setBackground':
+                    // Set background image
+                    loadBackground(msg.imageData);
+                    break;
+
+                case 'moire:toggleMoire':
+                    document.getElementById('toggleMoire').checked = !!msg.enabled;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'toggle_moire', enabled: !!msg.enabled }));
+                    }
+                    break;
+
+                case 'moire:toggleAuto':
+                    document.getElementById('toggleAuto').checked = !!msg.enabled;
+                    if (msg.enabled && isConnected && !isStreaming) {
+                        startStream();
+                    } else if (!msg.enabled && isStreaming) {
+                        stopStream();
+                    }
+                    break;
+
+                case 'moire:captureOnce':
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'capture_once' }));
+                    }
+                    break;
+
+                case 'moire:zoom':
+                    zoom = Math.max(config.minZoom, Math.min(config.maxZoom, msg.level || 1));
+                    updateTransform();
+                    break;
+
+                case 'moire:pan':
+                    panX = msg.x || 0;
+                    panY = msg.y || 0;
+                    updateTransform();
+                    break;
+
+                case 'moire:getState':
+                    sendToParent({
+                        type: 'moire:state',
+                        connected: isConnected,
+                        streaming: isStreaming,
+                        boxes: boxes.length,
+                        zoom: zoom,
+                        pan: { x: panX, y: panY },
+                        size: { w: canvasW, h: canvasH }
+                    });
+                    break;
+            }
+        });
+
+        function sendToParent(msg) {
+            if (config.embedMode && window.parent !== window) {
+                window.parent.postMessage(msg, '*');
+            }
+            // Also emit custom event for direct integration
+            window.dispatchEvent(new CustomEvent('moire:event', { detail: msg }));
+        }
+
+        // ======================================
+        // Canvas Management
+        // ======================================
+
+        function resizeCanvases(w, h) {
+            canvasW = w;
+            canvasH = h;
+            [bgCanvas, boxCanvas, labelCanvas, interCanvas].forEach(c => {
+                c.width = w;
+                c.height = h;
+            });
+            redrawAll();
+        }
+
+        function updateTransform() {
+            const vw = viewport.clientWidth;
+            const vh = viewport.clientHeight;
+            const x = (vw / 2) - (canvasW * zoom / 2) + panX;
+            const y = (vh / 2) - (canvasH * zoom / 2) + panY;
+            world.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+            document.getElementById('zoomValue').textContent = `${Math.round(zoom * 100)}%`;
+        }
+
+        function centerCanvas() {
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+
+        function fitToView() {
+            const vw = viewport.clientWidth;
+            const vh = viewport.clientHeight;
+            const padding = 20;
+            zoom = Math.min((vw - padding * 2) / canvasW, (vh - padding * 2) / canvasH, 1);
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+
+        // ======================================
+        // Drawing
+        // ======================================
+
+        function redrawAll() {
+            redrawBackground();
+            redrawBoxes();
+            redrawLabels();
+        }
+
+        function redrawBackground() {
+            bgCtx.clearRect(0, 0, canvasW, canvasH);
+            if (bgImage) {
+                bgCtx.drawImage(bgImage, 0, 0);
+            } else {
+                bgCtx.fillStyle = '#1a1a2e';
+                bgCtx.fillRect(0, 0, canvasW, canvasH);
+            }
+        }
+
+        function redrawBoxes() {
+            boxCtx.clearRect(0, 0, canvasW, canvasH);
+            boxes.forEach(box => {
+                const color = box.text ? config.boxColors.text : config.boxColors.default;
+                boxCtx.strokeStyle = color;
+                boxCtx.lineWidth = 2;
+                boxCtx.strokeRect(box.x, box.y, box.width, box.height);
+
+                // Confidence badge
+                if (box.confidence) {
+                    const text = `${Math.round(box.confidence * 100)}%`;
+                    boxCtx.font = '9px monospace';
+                    const tw = boxCtx.measureText(text).width;
+                    boxCtx.fillStyle = color;
+                    boxCtx.fillRect(box.x, box.y - 10, tw + 4, 10);
+                    boxCtx.fillStyle = '#000';
+                    boxCtx.fillText(text, box.x + 2, box.y - 2);
+                }
+            });
+            document.getElementById('metricBoxes').textContent = boxes.length;
+        }
+
+        function redrawLabels() {
+            labelCtx.clearRect(0, 0, canvasW, canvasH);
+            boxes.forEach(box => {
+                if (!box.text) return;
+                const y = box.y + box.height + 12;
+                labelCtx.font = '11px "Segoe UI", sans-serif';
+                const tw = labelCtx.measureText(box.text).width;
+                labelCtx.fillStyle = 'rgba(0,0,0,0.8)';
+                labelCtx.fillRect(box.x - 2, y - 10, tw + 4, 13);
+                labelCtx.fillStyle = '#4caf50';
+                labelCtx.fillText(box.text, box.x, y);
+            });
+        }
+
+        function updateLabelCount() {
+            const count = boxes.filter(b => b.text).length;
+            document.getElementById('metricLabels').textContent = count;
+        }
+
+        function redrawHighlight() {
+            interCtx.clearRect(0, 0, canvasW, canvasH);
+            if (!hoveredBox) return;
+            interCtx.fillStyle = 'rgba(0, 217, 255, 0.15)';
+            interCtx.fillRect(hoveredBox.x, hoveredBox.y, hoveredBox.width, hoveredBox.height);
+            interCtx.strokeStyle = '#00d9ff';
+            interCtx.lineWidth = 3;
+            interCtx.strokeRect(hoveredBox.x, hoveredBox.y, hoveredBox.width, hoveredBox.height);
+        }
+
+        function loadBackground(dataUrl) {
+            if (!dataUrl) return;
+            const img = new Image();
+            img.onload = () => {
+                bgImage = img;
+                if (img.width !== canvasW || img.height !== canvasH) {
+                    resizeCanvases(img.width, img.height);
+                } else {
+                    redrawBackground();
+                }
+                sendToParent({ type: 'moire:backgroundLoaded', size: { w: img.width, h: img.height } });
+            };
+            img.src = dataUrl;
+        }
+
+        // ======================================
+        // Mouse Interaction
+        // ======================================
+
+        viewport.addEventListener('mousedown', (e) => {
+            if (e.button === 0) {
+                isPanning = true;
+                lastMouse = { x: e.clientX, y: e.clientY };
+                viewport.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                panX += e.clientX - lastMouse.x;
+                panY += e.clientY - lastMouse.y;
+                lastMouse = { x: e.clientX, y: e.clientY };
+                updateTransform();
+            }
+
+            // Hit test for hover
+            const rect = viewport.getBoundingClientRect();
+            const vw = viewport.clientWidth;
+            const vh = viewport.clientHeight;
+            const cx = (vw / 2) - (canvasW * zoom / 2) + panX;
+            const cy = (vh / 2) - (canvasH * zoom / 2) + panY;
+            const worldX = (e.clientX - rect.left - cx) / zoom;
+            const worldY = (e.clientY - rect.top - cy) / zoom;
+
+            const hit = boxes.find(b =>
+                worldX >= b.x && worldX <= b.x + b.width &&
+                worldY >= b.y && worldY <= b.y + b.height
+            );
+
+            if (hit !== hoveredBox) {
+                hoveredBox = hit;
+                redrawHighlight();
+                updateTooltip(e, hit);
+                if (hit) {
+                    sendToParent({ type: 'moire:boxHover', box: hit });
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isPanning = false;
+            viewport.style.cursor = 'grab';
+        });
+
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            zoom = Math.max(config.minZoom, Math.min(config.maxZoom, zoom + (e.deltaY > 0 ? -config.zoomStep : config.zoomStep)));
+            updateTransform();
+        });
+
+        viewport.addEventListener('click', (e) => {
+            if (hoveredBox) {
+                sendToParent({ type: 'moire:boxClick', box: hoveredBox });
+            }
+        });
+
+        function updateTooltip(e, box) {
+            const tooltip = document.getElementById('tooltip');
+            if (box) {
+                tooltip.innerHTML = `
+                    <div class="tooltip-row"><span class="tooltip-key">ID</span><span class="tooltip-val">${box.id || '-'}</span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Pos</span><span class="tooltip-val">(${box.x}, ${box.y})</span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Size</span><span class="tooltip-val">${box.width}×${box.height}</span></div>
+                    ${box.text ? `<div class="tooltip-row"><span class="tooltip-key">Text</span><span class="tooltip-val">"${box.text}"</span></div>` : ''}
+                `;
+                tooltip.style.display = 'block';
+                tooltip.style.left = `${e.clientX + 12}px`;
+                tooltip.style.top = `${e.clientY + 12}px`;
+            } else {
+                tooltip.style.display = 'none';
+            }
+        }
+
+        // ======================================
+        // WebSocket Connection
+        // ======================================
+
+        function connect() {
+            if (ws) ws.close();
+            setStatus('connecting');
+
+            ws = new WebSocket(config.wsUrl);
+
+            ws.onopen = () => {
+                isConnected = true;
+                setStatus('connected');
+                ws.send(JSON.stringify({ type: 'handshake', clientId: 'moire-embed' }));
+                sendToParent({ type: 'moire:connected' });
+
+                // Auto-start if toggle is on
+                if (document.getElementById('toggleAuto').checked) {
+                    startStream();
+                } else {
+                    ws.send(JSON.stringify({ type: 'load_cached_results' }));
+                }
+            };
+
+            ws.onmessage = (e) => {
+                try {
+                    handleWSMessage(JSON.parse(e.data));
+                } catch (err) {
+                    console.error('WS parse error:', err);
+                }
+            };
+
+            ws.onclose = () => {
+                isConnected = false;
+                isStreaming = false;
+                setStatus('disconnected');
+                sendToParent({ type: 'moire:disconnected' });
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('WS error:', err);
+            };
+        }
+
+        function handleWSMessage(msg) {
+            switch (msg.type) {
+                case 'handshake_ack':
+                    console.log('Connected to server:', msg.features);
+                    break;
+
+                case 'detection':
+                case 'detection_result':
+                    handleDetection(msg.data || msg);
+                    break;
+
+                case 'started':
+                    isStreaming = true;
+                    setStatus('streaming');
+                    sendToParent({ type: 'moire:streamStarted' });
+                    break;
+
+                case 'stopped':
+                    isStreaming = false;
+                    setStatus('connected');
+                    sendToParent({ type: 'moire:streamStopped' });
+                    break;
+
+                case 'moire_toggle_ack':
+                    sendToParent({ type: 'moire:moireToggled', enabled: msg.enabled });
+                    break;
+
+                case 'ocr_complete':
+                    // Update boxes with OCR text
+                    if (msg.boxes) {
+                        boxes = msg.boxes;
+                        redrawBoxes();
+                        redrawLabels();
+                        updateLabelCount();
+                    }
+                    // Reset OCR button
+                    const btn = document.getElementById('btnOCR');
+                    btn.classList.remove('loading');
+                    btn.textContent = '🔤';
+                    sendToParent({ type: 'moire:ocrComplete', textCount: msg.textCount || 0 });
+                    break;
+            }
+        }
+
+        function handleDetection(data) {
+            // Update boxes
+            if (data.boxes) {
+                boxes = data.boxes;
+                redrawBoxes();
+                redrawLabels();
+                updateLabelCount();
+                sendToParent({ type: 'moire:detection', boxes: boxes, count: boxes.length });
+            }
+
+            // Update background
+            if (data.layers?.background || data.backgroundImage) {
+                loadBackground(data.layers?.background || data.backgroundImage);
+            }
+
+            // FPS
+            const now = Date.now();
+            if (lastFrameTime > 0) {
+                const fps = 1000 / (now - lastFrameTime);
+                fpsHistory.push(fps);
+                if (fpsHistory.length > 10) fpsHistory.shift();
+                const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
+                document.getElementById('metricFPS').textContent = avgFps.toFixed(1);
+            }
+            lastFrameTime = now;
+        }
+
+        function setStatus(status) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            dot.className = 'status-dot ' + status;
+            text.textContent = {
+                'connecting': 'Connecting...',
+                'connected': 'Connected',
+                'streaming': 'Streaming',
+                'disconnected': 'Disconnected'
+            }[status] || status;
+        }
+
+        function startStream() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'start_live' }));
+            }
+        }
+
+        function stopStream() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'stop_live' }));
+            }
+        }
+
+        // ======================================
+        // UI Controls
+        // ======================================
+
+        document.getElementById('toggleMoire').addEventListener('change', (e) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'toggle_moire', enabled: e.target.checked }));
+            }
+            sendToParent({ type: 'moire:moireToggle', enabled: e.target.checked });
+        });
+
+        document.getElementById('toggleAuto').addEventListener('change', (e) => {
+            if (e.target.checked && isConnected && !isStreaming) {
+                startStream();
+            } else if (!e.target.checked && isStreaming) {
+                stopStream();
+            }
+            sendToParent({ type: 'moire:autoToggle', enabled: e.target.checked });
+        });
+
+        // OCR Button
+        document.getElementById('btnOCR').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const btn = document.getElementById('btnOCR');
+                btn.classList.add('loading');
+                btn.textContent = '⏳';
+                ws.send(JSON.stringify({ type: 'run_ocr' }));
+            }
+        });
+
+        // Capture Button
+        document.getElementById('btnCapture').addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'capture_once' }));
+            }
+        });
+
+        document.getElementById('btnZoomIn').addEventListener('click', () => {
+            zoom = Math.min(config.maxZoom, zoom + config.zoomStep);
+            updateTransform();
+        });
+
+        document.getElementById('btnZoomOut').addEventListener('click', () => {
+            zoom = Math.max(config.minZoom, zoom - config.zoomStep);
+            updateTransform();
+        });
+
+        // ======================================
+        // Init
+        // ======================================
+
+        function init() {
+            resizeCanvases(1920, 1080);
+            fitToView();
+
+            // Notify parent we're ready
+            sendToParent({ type: 'moire:loaded', version: EMBED_VERSION });
+
+            // Auto-connect if not in embed mode, or wait for init message
+            if (!config.embedMode) {
+                connect();
+            }
+
+            console.log(`Moire Canvas v${EMBED_VERSION} initialized (embed mode: ${config.embedMode})`);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            updateTransform();
+        });
+
+        init();
+    </script>
+</body>
+</html>

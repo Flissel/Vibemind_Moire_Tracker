@@ -1,0 +1,133 @@
+{
+  "name": "moire-tracker-v2",
+  "version": "2.0.0",
+  "description": "Cross-platform UI detection and analysis - Electron embeddable",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "moire-server": "./bin/moire-server.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server/moire-server.js",
+      "require": "./dist/server/moire-server.js"
+    },
+    "./detection": {
+      "import": "./dist/detection/js-detection.js",
+      "require": "./dist/detection/js-detection.js"
+    },
+    "./detection/advanced": {
+      "import": "./dist/detection/advanced-detection.js",
+      "require": "./dist/detection/advanced-detection.js"
+    },
+    "./ocr": {
+      "import": "./dist/services/ocr-service.js",
+      "require": "./dist/services/ocr-service.js"
+    },
+    "./cnn": {
+      "import": "./dist/services/cnn-service.js",
+      "require": "./dist/services/cnn-service.js"
+    },
+    "./agents": {
+      "import": "./dist/agents/agent-team.js",
+      "require": "./dist/agents/agent-team.js"
+    },
+    "./canvas": {
+      "import": "./dist/canvas/moire-canvas.js",
+      "require": "./dist/canvas/moire-canvas.js"
+    },
+    "./canvas/embeddable": {
+      "import": "./dist/canvas/embeddable-canvas.js",
+      "require": "./dist/canvas/embeddable-canvas.js"
+    },
+    "./electron": {
+      "import": "./dist/electron/index.js",
+      "require": "./dist/electron/index.js"
+    },
+    "./electron/main": {
+      "import": "./dist/electron/moire-electron-main.js",
+      "require": "./dist/electron/moire-electron-main.js"
+    },
+    "./electron/preload": {
+      "import": "./dist/electron/moire-preload.js",
+      "require": "./dist/electron/moire-preload.js"
+    },
+    "./classifiers": {
+      "import": "./dist/classifiers/index.js",
+      "require": "./dist/classifiers/index.js"
+    },
+    "./react": {
+      "import": "./dist/react/index.js",
+      "require": "./dist/react/index.js"
+    },
+    "./embed": "./src/embed/canvas-embed.html"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node bin/moire-server.js",
+    "dev": "ts-node src/server/moire-server.ts",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "moire",
+    "ui-detection",
+    "electron",
+    "ocr",
+    "computer-vision",
+    "screen-capture",
+    "automation",
+    "cross-platform"
+  ],
+  "author": "MoireTracker Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "jimp": "^0.22.10",
+    "screenshot-desktop": "^1.15.0",
+    "tesseract.js": "^5.1.0",
+    "ws": "^8.14.2",
+    "dotenv": "^16.3.1"
+  },
+  "optionalDependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.2",
+    "rimraf": "^5.0.5",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.11"
+  },
+  "files": [
+    "dist/",
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vibemind/Vibemind_Desktop_MoireTracker.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
