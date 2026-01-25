@@ -321,6 +321,35 @@ TOOLS = [
             "type": "object",
             "properties": {}
         }
+    ),
+    Tool(
+        name="vision_analyze",
+        description="Analyze screenshot with Gemini Vision AI. Returns UI analysis, element locations, and suggested automation actions.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "What to analyze (e.g., 'Find all buttons', 'What is the current state?', 'Locate the login form')"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["element_detection", "state_analysis", "task_planning", "custom"],
+                    "description": "Analysis mode: element_detection (find UI elements), state_analysis (describe screen state), task_planning (suggest next actions), custom (free-form analysis)"
+                },
+                "json_output": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Return structured JSON response when possible"
+                },
+                "monitor_id": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Monitor index for multi-monitor setups (0 = primary)"
+                }
+            },
+            "required": ["prompt"]
+        }
     )
 ]
 
@@ -757,6 +786,91 @@ async def handle_claude_status() -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+async def handle_vision_analyze(
+    prompt: str,
+    mode: str = "custom",
+    json_output: bool = True,
+    monitor_id: int = 0
+) -> Dict[str, Any]:
+    """Analyze screenshot with Gemini Vision AI."""
+    import io
+
+    try:
+        # Try to import vision agent
+        try:
+            from agents.vision_agent import get_vision_agent
+            vision_agent = get_vision_agent()
+            has_vision = vision_agent is not None and vision_agent.is_available()
+        except ImportError:
+            has_vision = False
+            vision_agent = None
+
+        if not has_vision:
+            return {
+                "success": False,
+                "error": "Vision agent not available. Check OpenRouter API key and vision_agent.py"
+            }
+
+        # Get screenshot from cache or capture directly
+        screenshot_bytes = None
+        cached_frame = None
+
+        # Try StreamFrameCache first (live streaming frames)
+        try:
+            from stream_frame_cache import StreamFrameCache
+            cached_frame = StreamFrameCache.get_fresh_frame(
+                monitor_id=monitor_id,
+                max_age_ms=2000
+            )
+            if cached_frame:
+                screenshot_bytes = cached_frame.to_bytes()
+                logger.info(f"Using cached frame for monitor {monitor_id}")
+        except Exception as e:
+            logger.debug(f"StreamFrameCache not available: {e}")
+
+        # Fallback to pyautogui screenshot
+        if screenshot_bytes is None:
+            import pyautogui
+            screenshot = pyautogui.screenshot()
+            buffer = io.BytesIO()
+            screenshot.save(buffer, format='PNG')
+            screenshot_bytes = buffer.getvalue()
+            logger.info("Using pyautogui screenshot")
+
+        # Build analysis prompt based on mode
+        mode_prompts = {
+            "element_detection": f"Find all interactive UI elements (buttons, inputs, links, etc.) on this screen. {prompt}. Return as JSON with elements array containing: type, text, approximate_location (x, y), confidence.",
+            "state_analysis": f"Analyze the current state of this screen. {prompt}. Describe what application is shown, what's visible, and the current state.",
+            "task_planning": f"Based on this screen, suggest the next automation steps to accomplish: {prompt}. Return as JSON with steps array.",
+            "custom": prompt
+        }
+
+        analysis_prompt = mode_prompts.get(mode, prompt)
+
+        # Run vision analysis
+        result = await vision_agent.analyze_with_prompt(
+            screenshot_bytes,
+            analysis_prompt
+        )
+
+        return {
+            "success": True,
+            "analysis": result,
+            "mode": mode,
+            "monitor_id": monitor_id,
+            "source": "cached_frame" if cached_frame else "pyautogui"
+        }
+
+    except Exception as e:
+        logger.error(f"Vision analysis failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "mode": mode,
+            "monitor_id": monitor_id
+        }
+
+
 # Create MCP server
 server = Server("handoff")
 
@@ -822,6 +936,13 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
             result = await handle_claude_list_skills()
         elif name == "claude_cli_status":
             result = await handle_claude_status()
+        elif name == "vision_analyze":
+            result = await handle_vision_analyze(
+                prompt=arguments.get("prompt", ""),
+                mode=arguments.get("mode", "custom"),
+                json_output=arguments.get("json_output", True),
+                monitor_id=arguments.get("monitor_id", 0)
+            )
         else:
             result = {"error": f"Unknown tool: {name}"}
 
