@@ -4,6 +4,10 @@
 .env.production
 .env.*.local
 
+# Runtime state — generated per machine, not source
+data/
+python/data/
+
 # Dependencies
 node_modules/
 __pycache__/
